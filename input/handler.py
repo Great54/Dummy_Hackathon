@@ -54,22 +54,7 @@ def create_analysis_request(
         )
 
     # ---------------------------------------------------------
-    # At least one input file
-    # ---------------------------------------------------------
-
-    if not any([
-        blf_path,
-        mf4_path,
-        pcapng_path,
-        ttl_path
-    ]):
-        raise ValueError(
-            "Please provide at least one input file "
-            "(BLF, MF4, PCAPNG, or TTL)."
-        )
-
-    # ---------------------------------------------------------
-    # Validate provided files
+    # Validate provided files (all optional - none are required)
     # ---------------------------------------------------------
 
     validated_blf = (

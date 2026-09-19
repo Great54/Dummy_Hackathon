@@ -3,6 +3,111 @@
 
 An Agentic AI application developed as part of the AI Agentic Hackathon.
 
+---
+
+## Log Analyzer (Native Desktop App)
+
+**Log Analyzer** is a native Windows desktop application built with **PySide6** for
+analyzing software and communication defects using a local repository plus
+optional BLF, MF4, PCAPNG and TTL log/config files. It runs as a normal desktop
+window — there is no browser, no local web server, and no Streamlit involved.
+
+### Run in development
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+### Optional Local Deep Analysis
+
+Gemini 3.6 Flash remains the default structured reasoning provider. For local,
+private analysis without cloud API-token usage, install Ollama separately and
+pull a coding/reasoning model such as Qwen Coder:
+
+```powershell
+ollama pull qwen2.5-coder:14b
+```
+
+Select it in `.env`:
+
+```text
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=qwen2.5-coder:14b
+OLLAMA_HOST=http://127.0.0.1:11434
+```
+
+Use `LLM_PROVIDER=gemini` (or omit it) to retain Gemini. Ollama runs locally;
+model download size, RAM, GPU VRAM, and response speed depend on the selected
+model and workstation. The same bounded evidence is sent to either provider.
+
+### Package as a standalone executable
+
+```bash
+pyinstaller --onedir --name LogAnalyzer main.py
+```
+
+The generated executable is created at `dist/LogAnalyzer/LogAnalyzer.exe` and
+launches the native PySide6 window directly.
+
+### Architecture
+
+```text
+PySide6 UI (app/gui.py)
+    |
+    v
+Input Handler (input/handler.py)
+    |
+    v
+AnalysisRequest (input/models.py)
+    |
+    v
+Analysis / Agent backend (app/agent.py, app/log_anaylzer.py, app/llm_summary.py)
+```
+
+Long-running analysis work runs on a `QThread` (`app/worker.py`) so the UI
+never freezes.
+
+### Repository investigation
+
+Repository analysis runs after applicable log tools and derives at most 12
+search targets from the defect and existing evidence. It performs one bounded,
+case-insensitive pass over safe text files and returns relative paths, line
+numbers, and short redacted contexts only.
+
+Default limits are 5,000 files, 10 MiB per file, 30 matches across 20 files,
+three context lines on either side, and 2,000 context characters. Build,
+dependency, cache, VCS, credential, environment, certificate, and private-key
+paths are ignored. Resolved paths and symlinks may not escape the selected
+repository root. Repository files are never executed or modified.
+
+### BLF analysis dependency
+
+The BLF tool uses `vblf` 0.3.1 (MIT license) for incremental access to CAN,
+CAN-FD, and supported Ethernet BLF objects. Ethernet/IP/SOME-IP headers are
+decoded locally with bounded parsers; raw log files and complete payloads are
+never sent to Gemini. `python-can` was evaluated but its BLF reader only emits
+CAN/CAN-FD objects, while Scapy was not selected because its GPL-2.0-only
+license and broad packet stack are unnecessary for this use case.
+
+### TTTech TTL trace analysis
+
+Binary TTTech TTX Logger files (`TTL ` magic) are decoded by a separately
+installed TShark executable. The application does not bundle or redistribute
+Wireshark. Set `TSHARK_PATH` in `.env` when `tshark` is not on `PATH`; on Windows,
+the registered Wireshark installation is also discovered automatically.
+
+```text
+TSHARK_PATH=C:\Program Files\Wireshark\tshark.exe
+TTL_TSHARK_PACKET_LIMIT=100000
+TTL_TSHARK_TIMEOUT_SECONDS=300
+```
+
+The default analysis is intentionally limited to the first 100,000 decoded
+records. TShark output is streamed, only selected fields are requested, and no
+converted capture is created. Wireshark/TShark is GPL-2.0-or-later; review its
+license separately before distributing it with this application.
+
 The project will evolve from a basic Gemini LLM application into a tool-using AI agent capable of reasoning, selecting tools, retrieving information, executing tasks, and producing a final response.
 
 ---
@@ -75,7 +180,7 @@ Planned technologies:
 * LangGraph
 * FAISS
 * RAG
-* Streamlit
+* PySide6
 * Tool / Function Calling
 * External APIs
 * Agent memory
@@ -644,9 +749,10 @@ Target workflow:
 
 ---
 
-# 18. Streamlit UI
+# 18. PySide6 Desktop UI
 
-After the backend agent is functional, a Streamlit interface will be added.
+The backend agent is exposed through a native PySide6 desktop interface
+(`app/gui.py`), launched via `python main.py`.
 
 Target UI:
 
@@ -736,7 +842,7 @@ The UI should make the agent's tool usage visible during the hackathon demonstra
 ### Phase 7 — UI
 
 ```text
-[ ] Streamlit
+[x] PySide6 desktop window
 [ ] Chat interface
 [ ] Tool execution display
 [ ] Final response display
@@ -837,7 +943,7 @@ Multi-step Agent
   ↓
 LangGraph
   ↓
-Streamlit
+PySide6 Desktop UI
   ↓
 Hackathon Demo
 ```
