@@ -41,6 +41,47 @@ Use `LLM_PROVIDER=gemini` (or omit it) to retain Gemini. Ollama runs locally;
 model download size, RAM, GPU VRAM, and response speed depend on the selected
 model and workstation. The same bounded evidence is sent to either provider.
 
+### Local repository RAG
+
+Repository analysis combines the existing deterministic identifier search with a
+local FAISS vector index. Source and configuration files are chunked into overlapping
+80-line windows, embedded locally with `sentence-transformers/all-MiniLM-L6-v2`, and
+cached under `.cache/rag/`. Gemini is not used for embeddings, and only the final
+bounded retrieved chunks are included in reasoning evidence.
+
+The embedding model is downloaded on first use and loaded from the local model cache
+afterward. Set `RAG_ENABLED=false` to use deterministic repository search without the
+vector retrieval layer. `RAG_CACHE_DIR` can override the FAISS cache location, and
+`RAG_EMBEDDING_MODEL` can select another compatible local sentence-transformer model.
+
+### Official AUTOSAR requirement lookup
+
+Every defect investigation adds an AUTOSAR evidence phase after log analysis,
+repository search, and RAG. It uses targeted queries against the official
+`autosar.org` release search pages, follows only official release-matched PDF links,
+and extracts a small number of requirement contexts locally. Gemini receives only
+bounded requirement metadata and excerpts with their official document links; PDF
+files are not persisted or sent to the model. No third-party site is used as an
+AUTOSAR requirements authority.
+
+Release selection prefers a single release identified in repository evidence, then
+`AUTOSAR_RELEASE`, then the current official release (`R25-11`). The lookup is
+limited to three targeted queries, three PDFs, five requirements, and 220 characters
+per excerpt. `.cache/autosar/` stores at most 100 metadata/excerpt entries for 30
+days; it does not cache documents. HTTPS uses the operating-system trust store with
+a verified CA-bundle fallback. Requests are rate limited and time bounded.
+
+```text
+AUTOSAR_RELEASE=R25-11
+AUTOSAR_HTTP_TIMEOUT_SECONDS=10
+AUTOSAR_OFFLINE=false
+```
+
+Set `AUTOSAR_OFFLINE=true` to skip network access. The analysis continues and reports
+that official lookup could not be completed. AUTOSAR documents are copyrighted and
+provided for information; consult the linked official document and its terms for
+authoritative wording and applicable licensing conditions.
+
 ### Package as a standalone executable
 
 ```bash

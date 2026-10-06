@@ -21,6 +21,7 @@ from input.models import AnalysisRequest
 STRUCTURED_RESPONSE = {
     "root_cause": "The supplied TTL evidence suggests a service definition mismatch.",
     "recommendation": "Compare the configured service and method identifiers.",
+    "correlation": "Compare the observed log with the supplied repository evidence.",
     "confidence": "medium",
     "hypotheses": ["The consumer may use a different interface version."],
     "next_investigation_steps": ["Capture SOME/IP request and response traffic."],
@@ -38,6 +39,7 @@ class FakeGeminiClient:
         return self.response
 
 
+@patch.dict(os.environ, {"RAG_ENABLED": "false"})
 class ReasoningAgentTests(unittest.TestCase):
     def test_structured_response_creates_analysis_result(self) -> None:
         client = FakeGeminiClient()
@@ -98,7 +100,7 @@ class ReasoningAgentTests(unittest.TestCase):
         )
         prompt = client.prompts[0]
         evidence_text = prompt.split("Bounded structured evidence:\n", 1)[1].split(
-            "\n\nRespond with ONLY", 1
+            "\n\nAUTOSAR REQUIREMENT EVIDENCE", 1
         )[0]
         parsed = json.loads(evidence_text)
         self.assertEqual(
@@ -107,14 +109,65 @@ class ReasoningAgentTests(unittest.TestCase):
         )
         self.assertTrue(parsed[0]["details"]["details_truncated"])
 
+    def test_prompt_distinguishes_static_rag_from_runtime_evidence(self) -> None:
+        client = FakeGeminiClient()
+        evidence = [
+            Evidence("TTL Analysis", "Request observed", {"service_id": "0x1234"}),
+            Evidence(
+                "Repository RAG",
+                "Retrieved static source",
+                {"chunks": [{"path": "src/service.cpp", "text": "handleResponse();"}]},
+            ),
+        ]
+        ReasoningAgent(client).analyze(
+            AnalysisRequest("C:/repo", "Response missing"), evidence
+        )
+        prompt = client.prompts[0]
+        self.assertIn("Static repository evidence does not prove", prompt)
+        self.assertIn("runtime observations", prompt)
+        self.assertIn("Repository RAG", prompt)
+
     def test_no_log_orchestrator_path_reaches_reasoning_agent(self) -> None:
         client = FakeGeminiClient()
         result = AnalysisOrchestrator(ReasoningAgent(client)).run(
             AnalysisRequest("C:/repo", "Intermittent communication failure")
         )
         self.assertEqual(result.root_cause, INSUFFICIENT_EVIDENCE)
-        self.assertEqual(result.evidence, [])
+        availability = next(
+            item for item in result.evidence
+            if item.source == "Runtime Log Availability"
+        )
+        self.assertFalse(availability.details["runtime_log_evidence_available"])
+        self.assertIn("Runtime log evidence is unavailable", client.prompts[0])
+        self.assertTrue(
+            any(
+                item.source == "AUTOSAR Official Specification"
+                and item.details["status"] == "unavailable"
+                for item in result.evidence
+            )
+        )
         self.assertEqual(len(client.prompts), 1)
+
+    def test_reasoning_failure_preserves_tool_evidence_without_error_secrets(self) -> None:
+        class FailingAgent:
+            def analyze(self, request, evidence):
+                raise RuntimeError("GEMINI_API_KEY=do-not-show")
+
+        with tempfile.TemporaryDirectory() as repository:
+            source = Path(repository) / "diagnostic.c"
+            source.write_text(
+                "SensorStatus = UNAVAILABLE;\n", encoding="utf-8"
+            )
+            result = AnalysisOrchestrator(FailingAgent()).run(
+                AnalysisRequest(repository, "SensorStatus becomes UNAVAILABLE")
+            )
+
+        sources = [item.source for item in result.evidence]
+        self.assertIn("Repository Analysis", sources)
+        self.assertIn("Runtime Log Availability", sources)
+        self.assertIn("Reasoning Agent", sources)
+        self.assertEqual(result.root_cause, INSUFFICIENT_EVIDENCE)
+        self.assertNotIn("do-not-show", repr(result.to_dict()))
 
     def test_ttl_evidence_flows_through_orchestrator_and_reasoning_agent(self) -> None:
         client = FakeGeminiClient()

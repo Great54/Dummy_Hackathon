@@ -2,3 +2,9 @@ PySide6
 google-genai
 python-dotenv
 vblf==0.3.1
+faiss-cpu
+sentence-transformers
+certifi
+truststore
+pypdf
+fonttools

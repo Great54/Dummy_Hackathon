@@ -75,6 +75,7 @@ def write_tttech_fixture(path):
     )
 
 
+@patch.dict(os.environ, {"RAG_ENABLED": "false"})
 class TtlTraceToolTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -99,7 +100,14 @@ class TtlTraceToolTests(unittest.TestCase):
 
     def test_binary_ttl_selects_trace_tool_not_text_tool(self):
         names = [tool.name for tool in registry.get_applicable_tools(self.request)]
-        self.assertEqual(names, ["TTTech TTL Analysis", "Repository Analysis"])
+        self.assertEqual(
+            names,
+            [
+                "TTTech TTL Analysis",
+                "Repository Analysis",
+                "AUTOSAR Requirement Analysis",
+            ],
+        )
 
     def test_mocked_tshark_output_produces_bounded_evidence(self):
         lines = [

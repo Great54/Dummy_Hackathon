@@ -29,6 +29,7 @@ class AnalysisResult:
     confidence: str = "low"  # "low" | "medium" | "high"
     hypotheses: list[str] = field(default_factory=list)
     next_investigation_steps: list[str] = field(default_factory=list)
+    correlation: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

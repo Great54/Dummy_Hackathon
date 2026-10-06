@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QTextBrowser,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -208,7 +209,7 @@ QFrame#statusCard {
 }
 QLabel#statusText { color: #cbd5e1; font-size: 13px; }
 
-QTextEdit#resultText {
+QTextEdit#resultText, QTextBrowser#resultText {
     border: 1px solid #1d3850;
     background-color: #07111f;
     font-size: 13px;
@@ -313,7 +314,7 @@ class LogAnalyzerWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Log Analyzer")
+        self.setWindowTitle("Trace Titans Log Analyser Agent")
         self.resize(900, 780)
         self.setMinimumSize(700, 600)
 
@@ -517,9 +518,9 @@ class LogAnalyzerWindow(QMainWindow):
         title.setObjectName("cardTitle")
         layout.addWidget(title)
 
-        self.result_edit = QTextEdit()
+        self.result_edit = QTextBrowser()
         self.result_edit.setObjectName("resultText")
-        self.result_edit.setReadOnly(True)
+        self.result_edit.setOpenExternalLinks(True)
         self.result_edit.setMinimumHeight(160)
         self.result_edit.setHtml(
             "<i>No analysis has been run yet. Results will appear here after "
@@ -700,16 +701,24 @@ class LogAnalyzerWindow(QMainWindow):
                 return "<li>None</li>"
             return "".join(f"<li>{html.escape(v)}</li>" for v in values)
 
-        if result.evidence:
-            evidence_html = "".join(
-                f"<li><b>[{html.escape(e.severity.upper())}] "
-                f"{html.escape(e.source)}:</b> {html.escape(e.summary)}</li>"
-                for e in result.evidence
+        def evidence_group(entries) -> str:
+            if not entries:
+                return "<li>None</li>"
+            return "".join(
+                f"<li><b>[{html.escape(entry.severity.upper())}] "
+                f"{html.escape(entry.source)}:</b> {html.escape(entry.summary)}</li>"
+                for entry in entries
             )
-        else:
-            evidence_html = (
-                "<li>No supporting log evidence was collected for this analysis.</li>"
-            )
+
+        log_evidence = [
+            entry for entry in result.evidence
+            if entry.source.startswith(("BLF", "TTL", "MF4", "PCAPNG", "Runtime Log"))
+        ]
+        repository_evidence = [
+            entry for entry in result.evidence if entry.source.startswith("Repository")
+        ]
+
+        autosar_html = self._render_autosar_evidence(result.evidence)
 
         self.result_edit.setHtml(
             "<h2 style='color:#22d3ee;'>AI ANALYSIS</h2>"
@@ -717,8 +726,14 @@ class LogAnalyzerWindow(QMainWindow):
             f"<p>{html.escape(result.root_cause)}</p>"
             "<h3>Confidence</h3>"
             f"<p>{html.escape(result.confidence.upper())}</p>"
-            "<h3>Evidence</h3>"
-            f"<ul>{evidence_html}</ul>"
+            "<h3>Log Evidence</h3>"
+            f"<ul>{evidence_group(log_evidence)}</ul>"
+            "<h3>Repository Evidence</h3>"
+            f"<ul>{evidence_group(repository_evidence)}</ul>"
+            "<h3>AUTOSAR Requirements</h3>"
+            f"{autosar_html}"
+            "<h3>Correlation</h3>"
+            f"<p>{html.escape(result.correlation) or 'No correlation summary is available.'}</p>"
             "<h3>Hypotheses</h3>"
             f"<ul>{items(result.hypotheses)}</ul>"
             "<h3>Recommendation</h3>"
@@ -726,6 +741,53 @@ class LogAnalyzerWindow(QMainWindow):
             "<h3>Next Investigation Steps</h3>"
             f"<ul>{items(result.next_investigation_steps)}</ul>"
         )
+
+    @staticmethod
+    def _render_autosar_evidence(evidence) -> str:
+        item = next(
+            (entry for entry in evidence if entry.source == "AUTOSAR Official Specification"),
+            None,
+        )
+        if item is None:
+            return "<p>AUTOSAR requirement lookup was not run.</p>"
+
+        details = item.details
+        status = details.get("status")
+        if status == "no_match":
+            return "<p>No matching AUTOSAR requirement identified.</p>"
+        if status == "unavailable":
+            return "<p>Official AUTOSAR lookup could not be completed.</p>"
+
+        entries = []
+        if not details.get("lookup_complete", True):
+            entries.append(
+                "<p>Official search was bounded; additional matching documents "
+                "may not have been inspected.</p>"
+            )
+        for requirement in details.get("requirements", [])[:5]:
+            if not isinstance(requirement, dict):
+                continue
+            source_url = requirement.get("source_url", "")
+            safe_url = html.escape(source_url, quote=True)
+            source = (
+                f"<a href='{safe_url}'>Official AUTOSAR source</a>"
+                if safe_url.startswith("https://www.autosar.org/")
+                else "Official source URL unavailable"
+            )
+            entries.append(
+                "<ul>"
+                f"<li><b>Requirement ID:</b> {html.escape(str(requirement.get('requirement_id', 'Not identified')))}</li>"
+                f"<li><b>Document:</b> {html.escape(str(requirement.get('document', 'Not identified')))}</li>"
+                f"<li><b>Release:</b> {html.escape(str(requirement.get('release', details.get('release', ''))))}</li>"
+                f"<li><b>Platform:</b> {html.escape(str(requirement.get('platform', details.get('platform', 'Unknown'))))}</li>"
+                f"<li><b>Applicability:</b> {html.escape(str(requirement.get('applicability', 'INSUFFICIENT EVIDENCE')))}</li>"
+                f"<li><b>Requirement summary:</b> {html.escape(str(requirement.get('requirement_summary', '')))}</li>"
+                f"<li><b>Why it matches:</b> {html.escape(str(requirement.get('relevance_reason', '')))}</li>"
+                f"<li><b>Confidence:</b> {html.escape(str(requirement.get('confidence', '')))}</li>"
+                f"<li><b>Source:</b> {source}</li>"
+                "</ul>"
+            )
+        return "".join(entries) if entries else "<p>No matching AUTOSAR requirement identified.</p>"
 
     def _log_status(self, message: str) -> None:
         self.status_edit.append(message)

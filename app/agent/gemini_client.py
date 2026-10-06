@@ -20,6 +20,7 @@ ANALYSIS_RESPONSE_SCHEMA = {
     "properties": {
         "root_cause": {"type": "string"},
         "recommendation": {"type": "string"},
+        "correlation": {"type": "string"},
         "confidence": {
             "type": "string",
             "enum": ["low", "medium", "high"],
@@ -36,6 +37,7 @@ ANALYSIS_RESPONSE_SCHEMA = {
     "required": [
         "root_cause",
         "recommendation",
+        "correlation",
         "confidence",
         "hypotheses",
         "next_investigation_steps",

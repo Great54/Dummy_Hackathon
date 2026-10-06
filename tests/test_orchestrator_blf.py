@@ -1,6 +1,8 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from vblf.can import CanMessage
 from vblf.constants import ObjFlags
@@ -20,13 +22,21 @@ class StubAgent:
         )
 
 
+@patch.dict(os.environ, {"RAG_ENABLED": "false"})
 class OrchestratorBlfTests(unittest.TestCase):
     def test_no_blf_skips_tool(self) -> None:
         with tempfile.TemporaryDirectory() as repo:
             result = AnalysisOrchestrator(StubAgent()).run(
                 AnalysisRequest(repo, "Defect without a log")
             )
-        self.assertEqual([item.source for item in result.evidence], ["Repository Analysis"])
+        self.assertEqual(
+            [item.source for item in result.evidence],
+            [
+                "Repository Analysis",
+                "AUTOSAR Official Specification",
+                "Runtime Log Availability",
+            ],
+        )
         self.assertFalse(result.evidence[0].details["evidence_found"])
 
     def test_blf_is_discovered_and_evidence_reaches_agent(self) -> None:

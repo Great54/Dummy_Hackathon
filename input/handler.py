@@ -2,6 +2,13 @@ from pathlib import Path
 
 from .models import AnalysisRequest
 
+SUPPORTED_FILE_EXTENSIONS = {
+    "BLF": ".blf",
+    "MF4": ".mf4",
+    "PCAPNG": ".pcapng",
+    "TTL": ".ttl",
+}
+
 
 def validate_file(file_path: str, file_type: str) -> str:
     path = Path(file_path)
@@ -14,6 +21,14 @@ def validate_file(file_path: str, file_type: str) -> str:
     if not path.is_file():
         raise ValueError(
             f"{file_type} path is not a file: {file_path}"
+        )
+
+    expected_extension = SUPPORTED_FILE_EXTENSIONS.get(file_type.upper())
+    if expected_extension is None:
+        raise ValueError(f"Unsupported log file type: {file_type}")
+    if path.suffix.casefold() != expected_extension:
+        raise ValueError(
+            f"{file_type} files must use the {expected_extension} extension."
         )
 
     return str(path.resolve())

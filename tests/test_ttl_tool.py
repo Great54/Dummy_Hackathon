@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -28,6 +29,7 @@ ex:UnrelatedNode a ex:DataType .
 """
 
 
+@patch.dict(os.environ, {"RAG_ENABLED": "false"})
 class TtlToolTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tool = TtlTool()

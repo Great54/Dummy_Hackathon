@@ -30,6 +30,7 @@ class StubAgent:
         return AnalysisResult("Undetermined", "Investigate", evidence)
 
 
+@patch.dict(os.environ, {"RAG_ENABLED": "false"})
 class RepositoryToolTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -239,7 +240,10 @@ class RepositoryToolTests(unittest.TestCase):
         ):
             result = AnalysisOrchestrator(agent).run(self.request())
 
-        self.assertEqual([item.source for item in result.evidence], ["Fake Log", "Repository Analysis"])
+        self.assertEqual(
+            [item.source for item in result.evidence],
+            ["Fake Log", "Repository Analysis", "Runtime Log Availability"],
+        )
         repository = result.evidence[1]
         self.assertTrue(repository.details["evidence_found"])
         self.assertIn("0x1234", repository.details["search_targets"])
@@ -248,7 +252,14 @@ class RepositoryToolTests(unittest.TestCase):
         self.write("src/service.cpp", "void handleSomeIpResponse();")
         result = AnalysisOrchestrator(StubAgent()).run(self.request())
         sources = [item.source for item in result.evidence]
-        self.assertEqual(sources, ["Repository Analysis"])
+        self.assertEqual(
+            sources,
+            [
+                "Repository Analysis",
+                "AUTOSAR Official Specification",
+                "Runtime Log Availability",
+            ],
+        )
         self.assertTrue(result.evidence[0].details["evidence_found"])
 
 
