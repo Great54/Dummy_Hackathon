@@ -30,6 +30,7 @@ class AnalysisResult:
     hypotheses: list[str] = field(default_factory=list)
     next_investigation_steps: list[str] = field(default_factory=list)
     correlation: str = ""
+    intent: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

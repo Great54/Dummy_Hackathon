@@ -35,6 +35,8 @@ class OllamaAnalysisError(RuntimeError):
 class OllamaClient:
     """Minimal client for Ollama's local /api/generate endpoint."""
 
+    provider_name = "ollama"
+
     @property
     def model(self) -> str:
         return os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL).strip()

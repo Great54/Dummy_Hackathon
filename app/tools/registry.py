@@ -5,7 +5,9 @@ from app.tools.autosar_requirement_tool import AUTOSARRequirementTool
 from app.tools.blf_tool import BlfTool
 from app.tools.datetime_tool import DateTimeTool
 from app.tools.rag_repository_tool import RagRepositoryTool
+from app.tools.repository_inventory_tool import RepositoryInventoryTool
 from app.tools.repository_tool import RepositoryTool
+from app.tools.someip_inventory_tool import SomeIpInventoryTool
 from app.tools.ttl_trace_tool import TtlTraceTool
 from app.tools.ttl_tool import TtlTool
 from input.models import AnalysisRequest
@@ -15,6 +17,8 @@ _REGISTERED_TOOLS: list[AnalysisTool] = [
     BlfTool(),
     TtlTraceTool(),
     TtlTool(),
+    SomeIpInventoryTool(),
+    RepositoryInventoryTool(),
     RepositoryTool(),
     RagRepositoryTool(),
     AUTOSARRequirementTool(),

@@ -56,6 +56,8 @@ class GeminiAnalysisError(RuntimeError):
 class GeminiClient:
     """Thin, lazily-initialized wrapper around genai.Client."""
 
+    provider_name = "gemini"
+
     def __init__(self) -> None:
         self._client = None
 

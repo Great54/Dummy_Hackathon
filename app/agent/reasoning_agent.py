@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from app.agent.provider import ReasoningClient, get_reasoning_client
 from app.orchestrator.evidence import AnalysisResult, Evidence
+from app.tools.repository_inventory_tool import detect_question_intent
 from input.models import AnalysisRequest
 
 logger = logging.getLogger(__name__)
@@ -82,8 +83,27 @@ class ReasoningAgent:
         self, request: AnalysisRequest, evidence: list[Evidence]
     ) -> AnalysisResult:
         prompt = self._build_prompt(request, evidence)
-        raw_text = self._client.generate_json(prompt)
-        parsed = self._parse_response(raw_text)
+        try:
+            raw_text = self._client.generate_json(prompt)
+        except Exception as error:  # noqa: BLE001 - preserve safe diagnostics for the caller
+            setattr(error, "provider", getattr(self._client, "provider_name", self._client.__class__.__name__))
+            setattr(error, "model", getattr(self._client, "model", None))
+            setattr(error, "analysis_stage", "reasoning_provider")
+            setattr(error, "provider_reached", True)
+            setattr(error, "response_received", False)
+            raise
+
+        try:
+            parsed = self._parse_response(raw_text)
+        except Exception as error:  # noqa: BLE001 - preserve parse-level diagnostics
+            setattr(error, "provider", getattr(self._client, "provider_name", self._client.__class__.__name__))
+            setattr(error, "model", getattr(self._client, "model", None))
+            setattr(error, "analysis_stage", "response_parsing")
+            setattr(error, "provider_reached", True)
+            setattr(error, "response_received", True)
+            setattr(error, "parsing_failed", True)
+            raise
+
         verified_ids = _verified_autosar_ids(evidence)
         parsed = _sanitize_autosar_ids(parsed, verified_ids)
         raw_text = _sanitize_autosar_id_text(raw_text, verified_ids)
@@ -112,6 +132,7 @@ class ReasoningAgent:
                 if _autosar_status(evidence) == "matched"
                 else build_autosar_correlation(evidence)
             ) or build_autosar_correlation(evidence),
+            intent=detect_question_intent(request.defect_description),
         )
 
     def _build_prompt(

@@ -720,6 +720,47 @@ class LogAnalyzerWindow(QMainWindow):
 
         autosar_html = self._render_autosar_evidence(result.evidence)
 
+        if result.intent == "someip_inventory":
+            inventory_item = next((entry for entry in result.evidence if entry.source == "SOME/IP Inventory"), None)
+            details = inventory_item.details if inventory_item else {}
+            table_rows = []
+            for item in details.get("service_interfaces", [])[:25]:
+                table_rows.append(
+                    "<tr>"
+                    f"<td>{html.escape(str(item.get('name', '')))}</td>"
+                    f"<td>{html.escape(str(item.get('service_id', '')))}</td>"
+                    f"<td>{html.escape(str(item.get('source_file', '')))}</td>"
+                    "</tr>"
+                )
+            if not table_rows:
+                table_rows.append("<tr><td colspan='3'>No service definitions were found.</td></tr>")
+            self.result_edit.setHtml(
+                "<h2 style='color:#22d3ee;'>SOME/IP Service Inventory</h2>"
+                f"<p>{html.escape(result.root_cause)}</p>"
+                "<ul>"
+                f"<li><b>Unique service interfaces:</b> {html.escape(str(details.get('unique_service_interfaces', 'unavailable')))}</li>"
+                f"<li><b>Unique service IDs:</b> {html.escape(str(details.get('unique_service_ids', 'unavailable')))}</li>"
+                f"<li><b>Provided service instances:</b> {html.escape(str(details.get('provided_service_instances', 'unavailable')))}</li>"
+                f"<li><b>Required service instances:</b> {html.escape(str(details.get('required_service_instances', 'unavailable')))}</li>"
+                f"<li><b>Configuration files inspected:</b> {html.escape(str(details.get('files_inspected', 'unavailable')))}</li>"
+                "</ul>"
+                "<table border='1' cellpadding='6' cellspacing='0'><tr><th>Service</th><th>Service ID</th><th>Source</th></tr>"
+                + "".join(table_rows) +
+                "</table>"
+                f"<p>{html.escape(result.recommendation or 'No additional recommendation.')}</p>"
+            )
+            return
+
+        if result.intent == "repository_inventory":
+            self.result_edit.setHtml(
+                "<h2 style='color:#22d3ee;'>Repository Inventory</h2>"
+                f"<p>{html.escape(result.root_cause)}</p>"
+                "<h3>Evidence</h3>"
+                f"<ul>{evidence_group(result.evidence)}</ul>"
+                f"<p>{html.escape(result.recommendation or 'No additional recommendation.')}</p>"
+            )
+            return
+
         self.result_edit.setHtml(
             "<h2 style='color:#22d3ee;'>AI ANALYSIS</h2>"
             "<h3>Root Cause</h3>"

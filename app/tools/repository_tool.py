@@ -37,7 +37,7 @@ SUPPORTED_EXTENSIONS = {
 }
 IGNORED_DIRECTORIES = {
     ".git", ".github", ".vscode", ".idea", "build", "dist", "out", "target",
-    "node_modules", "venv", ".venv", "__pycache__", ".cache", "coverage",
+    "node_modules", "venv", "venv311", ".venv", "__pycache__", ".cache", "coverage",
     ".coverage", "htmlcov", ".pytest_cache", ".mypy_cache", ".tox", ".nox",
     "vendor", "third_party", "generated", "cmake-build-debug", "cmake-build-release",
 }
